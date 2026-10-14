@@ -5,7 +5,7 @@ Every input in the INPUTS block carries a data-status label:
   [M] measured  [C] course data  [A] assumption  [I] illustrative placeholder
 Replace placeholders with measured values, rerun, and relabel figures accordingly.
 Run:  python enae410_sweeps.py      -> figures written to ./figures
-Equations: ENAE 410 Midterm F2026 formula sheet and Design Lab 1 (mass scaling).
+Equations : ENAE 410 Midterm F2026 formula sheet and Design Lab 1 (mass scaling).
 """
 import os
 import numpy as np
