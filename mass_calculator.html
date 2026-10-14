@@ -1,0 +1,211 @@
+<title>Aircraft mass calculator</title>
+<style>
+/* Layout: inputs panel beside a results panel, stacking on phones. Plain white page, black text, Desmos-style accents on the chart only. */
+:root {
+  --bg: #ffffff;
+  --ink: #000000;
+  --muted: #666666;
+  --line: #dddddd;
+  --soft: #f2f2f2;
+  --blue: #2d70b3;
+  --purple: #6042a6;
+  --green: #388c46;
+  --red: #c74440;
+  --ui: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --math: "Times New Roman", Times, serif;
+  --mono: ui-monospace, Consolas, "Courier New", monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 48px; display: grid; gap: 20px; }
+h1 { font-size: clamp(30px, 6vw, 40px); font-weight: 400; margin: 0; }
+.lede { margin: 4px 0 0; color: var(--muted); max-width: 65ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { border: 1px solid var(--line); padding: 20px; display: grid; gap: 16px; min-width: 0; }
+h2 { font-size: 12px; font-weight: 400; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.field { display: grid; gap: 6px; }
+.field label { font-family: var(--math); font-size: 18px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.field label small { color: var(--muted); font: 12px var(--ui); }
+.inrow { display: flex; border: 1px solid var(--line); }
+.inrow:focus-within { border-color: var(--blue); outline: 1px solid var(--blue); }
+.inrow input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: 18px var(--math); padding: 8px 10px; font-variant-numeric: tabular-nums; }
+.inrow input:focus { outline: none; }
+.inrow span { font-size: 13px; color: var(--muted); padding: 0 10px; display: grid; place-items: center; border-left: 1px solid var(--line); min-width: 56px; background: var(--soft); }
+.hint { font-size: 12.5px; color: var(--muted); }
+.lbl { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lbl label { font-family: var(--math); font-size: 18px; }
+button.lock { font-size: 11px; padding: 1px 7px; color: var(--muted); }
+.inrow input[readonly] { background: var(--soft); color: var(--muted); cursor: not-allowed; }
+button { justify-self: start; font: 14px var(--ui); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 3px; padding: 6px 14px; cursor: pointer; }
+button:hover { background: var(--soft); }
+button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+sub { font-size: .65em; }
+.total .num { font-family: var(--math); font-size: clamp(44px, 9vw, 60px); line-height: 1; font-variant-numeric: tabular-nums; }
+.total .num small { font-size: .4em; color: var(--muted); margin-left: 6px; }
+.total .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.chip { font-size: 13px; }
+.chip.good { color: var(--green); }
+.chip.warn { color: var(--red); }
+
+.bar { display: flex; height: 12px; background: var(--soft); border: 1px solid var(--line); }
+.bar div { height: 100%; }
+.legend { display: grid; gap: 6px; }
+.legend .row { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 10px; align-items: center; font-size: 14px; }
+.sw { width: 12px; height: 12px; border-radius: 50%; }
+.legend .v { font-variant-numeric: tabular-nums; text-align: right; }
+.legend .p { font-size: 12px; color: var(--muted); width: 4.5ch; text-align: right; }
+
+table { width: 100%; border-collapse: collapse; }
+.geo { font-size: 14px; }
+.geo th, .geo td { padding: 7px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+.geo th { text-align: left; font-weight: 400; font-family: var(--math); font-size: 17px; }
+.geo th small { display: block; color: var(--muted); font: 12px var(--ui); }
+.geo td { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.geo tr:last-child th, .geo tr:last-child td { border-bottom: 0; }
+
+details { display: grid; gap: 10px; }
+summary { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); cursor: pointer; width: fit-content; }
+summary:hover { color: var(--ink); }
+summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+details[open] summary { margin-bottom: 10px; }
+.work-wrap { overflow-x: auto; border: 1px solid var(--line); }
+.work { font-family: var(--math); font-size: 17px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.work td { padding: 6px 14px; border-bottom: 1px solid var(--line); }
+.work tr:last-child td { border-bottom: 0; }
+.work td:first-child { text-align: right; padding-right: 4px; }
+.work td:nth-child(2) { padding-inline: 4px; }
+</style>
+
+<main class="wrap">
+  <header>
+    <h1>Aircraft mass calculator</h1>
+    <p class="lede">ENAE 410</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="in-h">
+      <h2 id="in-h">Inputs</h2>
+      <div class="field">
+        <label for="b"><span>Theoretical wingspan, <i>b</i></span> <small id="b-alt"></small></label>
+        <div class="inrow"><input id="b" type="number" inputmode="decimal" step="0.01" min="0" value="0.60"><span>m</span></div>
+      </div>
+      <div class="field">
+        <div class="lbl"><label for="mc"><span><i>m</i><sub>components</sub></span></label><button class="lock" type="button" data-for="mc">Unlock</button></div>
+        <div class="inrow"><input id="mc" type="number" inputmode="decimal" step="0.1" min="0" value="93.2" readonly><span>g</span></div>
+        <span class="hint">3 servos, motor, ESC, receiver, prop, battery. No landing gear.</span>
+      </div>
+      <div class="field">
+        <label for="inf"><span>%<i>infill</i></span></label>
+        <div class="inrow"><input id="inf" type="number" inputmode="decimal" step="1" min="0" max="100" value="5"><span>%</span></div>
+      </div>
+      <div class="field">
+        <label for="t"><span><i>t</i><sub>wall</sub></span></label>
+        <div class="inrow"><input id="t" type="number" inputmode="decimal" step="0.1" min="0" value="0.5"><span>mm</span></div>
+      </div>
+      <div class="field">
+        <div class="lbl"><label for="rho"><span><i>ρ</i><sub>PLA</sub></span></label><button class="lock" type="button" data-for="rho">Unlock</button></div>
+        <div class="inrow"><input id="rho" type="number" inputmode="decimal" step="10" min="0" value="800" readonly><span>kg/m³</span></div>
+      </div>
+      <button id="reset" type="button">Reset to defaults</button>
+    </section>
+
+    <section class="panel" aria-labelledby="out-h" aria-live="polite">
+      <h2 id="out-h"><span>Total mass, <i>m</i><sub>total</sub></span></h2>
+      <div class="total">
+        <div class="num"><span id="mt">–</span><small>g</small></div>
+        <div class="sub" id="mt-alt"></div>
+      </div>
+      <div class="chip" id="chip"></div>
+
+      <div class="bar" aria-hidden="true">
+        <div id="bar-c" style="background:var(--blue)"></div>
+        <div id="bar-s" style="background:var(--purple)"></div>
+        <div id="bar-i" style="background:var(--green)"></div>
+      </div>
+      <div class="legend">
+        <div class="row"><span class="sw" style="background:var(--blue)"></span><span><i>m</i><sub>components</sub></span><span class="v" id="l-c"></span><span class="p" id="p-c"></span></div>
+        <div class="row"><span class="sw" style="background:var(--purple)"></span><span><i>m</i><sub>walls</sub> = <i>ρ</i><sub>PLA</sub> <i>t</i><sub>wall</sub> <i>SA</i></span><span class="v" id="l-s"></span><span class="p" id="p-s"></span></div>
+        <div class="row"><span class="sw" style="background:var(--green)"></span><span><i>m</i><sub>infill</sub> = %<i>infill</i> · <i>ρ</i><sub>PLA</sub> <i>Vol</i></span><span class="v" id="l-i"></span><span class="p" id="p-i"></span></div>
+      </div>
+
+      <h2>Scaled geometry</h2>
+      <table class="geo">
+        <tr><th><i>r</i> = <i>b</i> / <i>b</i><sub>ref</sub></th><td id="r"></td></tr>
+        <tr><th><i>SA</i> = <i>SA</i><sub>ref</sub> <i>r</i><sup>2</sup></th><td id="sa"></td></tr>
+        <tr><th><i>Vol</i> = <i>Vol</i><sub>ref</sub> <i>r</i><sup>3</sup></th><td id="vol"></td></tr>
+        <tr><th><i>S</i><sub>w</sub> = <i>S</i><sub>w,ref</sub> <i>r</i><sup>2</sup></th><td id="sw"></td></tr>
+        <tr><th><i>m</i><sub>total</sub> / <i>S</i><sub>w</sub></th><td id="wl"></td></tr>
+      </table>
+
+      <details>
+        <summary>Show worked substitution</summary>
+        <div class="work-wrap"><table class="work"><tbody id="work"></tbody></table></div>
+      </details>
+    </section>
+  </div>
+</main>
+
+<script>
+const REF = { SA: 0.02207, Vol: 3.8292e-5, b: 0.19948, Sw: 0.00631753 };
+const DEF = { b: "0.60", mc: "93.2", inf: "5", t: "0.5", rho: "800" };
+const $ = id => document.getElementById(id);
+const num = id => { const v = parseFloat($(id).value); return isFinite(v) && v >= 0 ? v : 0; };
+const f = (x, d) => x.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const e = x => x.toExponential(4).replace(/e([+-])(\d+)/, (_, s, p) => ` × 10${s === "-" ? "⁻" : ""}${[...p].map(c => "⁰¹²³⁴⁵⁶⁷⁸⁹"[c]).join("")}`);
+
+function calc() {
+  const b = num("b"), mc = num("mc"), inf = num("inf") / 100, t = num("t") / 1000, rho = num("rho");
+  const r = b / REF.b;
+  const SA = REF.SA * r * r, Vol = REF.Vol * r ** 3, Sw = REF.Sw * r * r;
+  const ms = rho * t * SA * 1000;      // g
+  const mi = inf * rho * Vol * 1000;   // g
+  const mt = mc + ms + mi;
+
+  $("b-alt").textContent = `${f(b * 100, 1)} cm · ${f(b / 0.0254, 1)} in`;
+  $("mt").textContent = f(mt, 1);
+  $("mt-alt").textContent = `${f(mt / 1000, 4)} kg · ${f(mt / 28.3495, 2)} oz · W = ${f(mt / 1000 * 9.81, 3)} N`;
+
+  const ok = mt >= 170 && mt <= 340;
+  $("chip").className = "chip " + (ok ? "good" : "warn");
+  $("chip").textContent = ok ? "Within the Park 250 sport range of 170–340 g."
+    : mt < 170 ? "Below the Park 250 sport range of 170–340 g." : "Above the Park 250 sport range of 170–340 g.";
+
+  const pct = x => mt > 0 ? x / mt * 100 : 0;
+  [["c", mc], ["s", ms], ["i", mi]].forEach(([k, v]) => {
+    $("bar-" + k).style.width = pct(v) + "%";
+    $("l-" + k).textContent = f(v, 1) + " g";
+    $("p-" + k).textContent = f(pct(v), 0) + "%";
+  });
+
+  $("r").textContent = f(r, 4);
+  $("sa").textContent = e(SA) + " m²";
+  $("vol").textContent = e(Vol) + " m³";
+  $("sw").textContent = e(Sw) + " m²";
+  $("wl").textContent = Sw > 0 ? `${f(mt / (Sw * 100), 1)} g/dm²` : "–";
+
+  // all interpolated values are numbers formatted above, so innerHTML is safe
+  $("work").innerHTML = [
+    ["<i>r</i>", `${f(b, 4)} / ${REF.b} = ${f(r, 4)}`],
+    ["<i>SA</i>", `${REF.SA} × ${f(r, 4)}² = ${e(SA)} m²`],
+    ["<i>Vol</i>", `${e(REF.Vol)} × ${f(r, 4)}³ = ${e(Vol)} m³`],
+    ["<i>S</i><sub>w</sub>", `${REF.Sw} × ${f(r, 4)}² = ${e(Sw)} m²`],
+    ["<i>m</i><sub>walls</sub>", `${rho} × ${e(t)} × ${e(SA)} = ${f(ms / 1000, 5)} kg`],
+    ["<i>m</i><sub>infill</sub>", `${f(inf, 3)} × ${rho} × ${e(Vol)} = ${f(mi / 1000, 5)} kg`],
+    ["<i>m</i><sub>total</sub>", `${f(mc / 1000, 4)} + ${f(ms / 1000, 5)} + ${f(mi / 1000, 5)} = <b>${f(mt / 1000, 5)} kg</b>`],
+  ].map(([l, v]) => `<tr><td>${l}</td><td>=</td><td>${v}</td></tr>`).join("");
+}
+
+["b", "mc", "inf", "t", "rho"].forEach(id => $(id).addEventListener("input", calc));
+const locks = document.querySelectorAll(".lock");
+const setLock = (btn, locked) => { $(btn.dataset.for).readOnly = locked; btn.textContent = locked ? "Unlock" : "Lock"; };
+locks.forEach(btn => btn.addEventListener("click", () => setLock(btn, !$(btn.dataset.for).readOnly)));
+$("reset").addEventListener("click", () => {
+  Object.entries(DEF).forEach(([k, v]) => $(k).value = v);
+  locks.forEach(btn => setLock(btn, true));
+  calc();
+});
+calc();
+</script>
