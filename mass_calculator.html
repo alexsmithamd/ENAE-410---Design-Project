@@ -1,4 +1,4 @@
-/* https://htmlpreview.github.io/?https://github.com/alexsmithamd/ENAE-410---Design-Project/blob/Jonathan/mass_calculator.html */
+<!-- https://htmlpreview.github.io/?https://github.com/alexsmithamd/ENAE-410---Design-Project/blob/Jonathan/mass_calculator.html -->
 
 <title>Aircraft mass calculator</title>
 <style>
@@ -137,6 +137,11 @@ details[open] summary { margin-bottom: 10px; }
         <div class="inrow"><input id="rho" type="number" inputmode="decimal" step="10" min="0" value="800" readonly><span>kg/m³</span></div>
       </div>
       <div class="field">
+        <label for="clmax"><span><i>C</i><sub>L,max</sub></span></label>
+        <div class="inrow"><input id="clmax" type="number" inputmode="decimal" step="0.01" min="0" value="1.075"><span></span></div>
+        <span class="hint">Default is the wind tunnel maximum, at 16°. Used for stall speed and bank angle.</span>
+      </div>
+      <div class="field">
         <div class="lbl"><label for="air"><span><i>ρ</i><sub>air</sub></span></label>
           <span class="btns"><button class="preset" type="button" data-air="1.225" disabled>Sea level</button><button class="preset" type="button" data-air="1.107" disabled>Calgary</button><button class="lock" type="button" data-for="air">Unlock</button></span></div>
         <div class="inrow"><input id="air" type="number" inputmode="decimal" step="0.001" min="0" value="1.225" readonly><span>kg/m³</span></div>
@@ -203,7 +208,7 @@ details[open] summary { margin-bottom: 10px; }
         <tbody id="env-rows"></tbody>
       </table>
     </div>
-    <p class="hint">Air density from <i>ρ</i><sub>air</sub> above. The 6x4 propeller thrust curves are MotoCalc sea-level data, so thrust is likely a little optimistic if you enter a lower density, such as Calgary's 1.107 kg/m³. Whole-aircraft <i>C</i><sub>L</sub> and <i>C</i><sub>D</sub> from the wind tunnel table, <i>C</i><sub>L,max</sub> = 1.075. Climb: sin <i>γ</i> = (<i>T</i> − <i>D</i>) / <i>W</i>. Bank: level turn, <i>n</i> = 1 / cos <i>φ</i>, limited by <i>C</i><sub>L,max</sub> and available thrust.</p>
+    <p class="hint">Air density from <i>ρ</i><sub>air</sub> above. The 6x4 propeller thrust curves are MotoCalc sea-level data, so thrust is likely a little optimistic if you enter a lower density, such as Calgary's 1.107 kg/m³. Whole-aircraft <i>C</i><sub>L</sub> and <i>C</i><sub>D</sub> from the wind tunnel table. Above the table's last point (<i>C</i><sub>L</sub> = 1.075) <i>C</i><sub>D</sub> is held at its last value. Climb: sin <i>γ</i> = (<i>T</i> − <i>D</i>) / <i>W</i>. Bank: level turn, <i>n</i> = 1 / cos <i>φ</i>, limited by <i>C</i><sub>L,max</sub> and available thrust.</p>
   </section>
 </main>
 
@@ -234,8 +239,8 @@ const thrustG = (k, V) => {
 };
 
 // W in newtons, S in m², rho = air density in kg/m³. Thrust and drag are in grams-force, matching the thrust sheets.
-function envelope(W, S, rho) {
-  const Vs = Math.sqrt(2 * W / (rho * S * CLMAX));
+function envelope(W, S, rho, clmax) {
+  const Vs = Math.sqrt(2 * W / (rho * S * clmax));
   const Wg = W / G * 1000;
   const drag = (V, n = 1) => 0.5 * rho * V * V * S * lerp(POLAR, 2 * n * W / (rho * V * V * S)) / G * 1000;
   const rows = {};
@@ -248,7 +253,7 @@ function envelope(W, S, rho) {
       Vhi = V;
       const a = Math.asin(Math.min(1, (T - drag(V)) / Wg));
       if (a > g.a) g = { v: V, a };
-      let lo = 1, hi = Math.max(1, CLMAX * rho * V * V * S / (2 * W)); // hi = lift-limited load factor
+      let lo = 1, hi = Math.max(1, clmax * rho * V * V * S / (2 * W)); // hi = lift-limited load factor
       if (drag(V, hi) <= T) lo = hi;
       else for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (drag(V, m) <= T) lo = m; else hi = m; }
       const ph = Math.acos(1 / lo);
@@ -263,7 +268,7 @@ function envelope(W, S, rho) {
 
 <script>
 const REF = { SA: 0.02207, Vol: 3.8292e-5, b: 0.19948, Sw: 0.00631753 };
-const DEF = { b: "0.60", mc: "93.2", inf: "5", t: "0.5", rho: "800", air: "1.225" };
+const DEF = { b: "0.60", mc: "93.2", inf: "5", t: "0.5", rho: "800", air: "1.225", clmax: "1.075" };
 const $ = id => document.getElementById(id);
 const num = id => { const v = parseFloat($(id).value); return isFinite(v) && v >= 0 ? v : 0; };
 const f = (x, d) => x.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -310,13 +315,13 @@ function calc() {
     ["<i>m</i><sub>total</sub>", `${f(mc / 1000, 4)} + ${f(ms / 1000, 5)} + ${f(mi / 1000, 5)} = <b>${f(mt / 1000, 5)} kg</b>`],
   ].map(([l, v]) => `<tr><td>${l}</td><td>=</td><td>${v}</td></tr>`).join("");
 
-  renderEnvelope(mt / 1000 * G, Sw, num("air"));
+  renderEnvelope(mt / 1000 * G, Sw, num("air"), num("clmax"));
 }
 
-function renderEnvelope(W, S, rho) {
-  if (!(W > 0 && S > 0 && rho > 0)) { $("env-stat").textContent = "Enter a wingspan, mass and air density to see the envelope."; $("env-chart").innerHTML = ""; $("env-rows").innerHTML = ""; return; }
-  const E = envelope(W, S, rho);
-  $("env-stat").innerHTML = `<i>V</i><sub>stall</sub> = <b>${f(E.Vs, 1)} m/s</b> at <i>C</i><sub>L,max</sub> = ${CLMAX} &nbsp;·&nbsp; <i>W</i> = ${f(W, 2)} N (${f(E.Wg, 0)} g)`;
+function renderEnvelope(W, S, rho, clmax) {
+  if (!(W > 0 && S > 0 && rho > 0 && clmax > 0)) { $("env-stat").textContent = "Enter a wingspan, mass and air density to see the envelope."; $("env-chart").innerHTML = ""; $("env-rows").innerHTML = ""; return; }
+  const E = envelope(W, S, rho, clmax);
+  $("env-stat").innerHTML = `<i>V</i><sub>stall</sub> = <b>${f(E.Vs, 1)} m/s</b> at <i>C</i><sub>L,max</sub> = ${f(clmax, 3)} &nbsp;·&nbsp; <i>W</i> = ${f(W, 2)} N (${f(E.Wg, 0)} g)`;
 
   const VM = 30, TM = 200, L = 52, R = 14, TP = 14, B = 46, pw = 720 - L - R, ph = 380 - TP - B;
   const X = v => L + v / VM * pw, Y = t => TP + ph - Math.min(t, TM * 1.5) / TM * ph;
@@ -349,7 +354,7 @@ function renderEnvelope(W, S, rho) {
   }).join("");
 }
 
-["b", "mc", "inf", "t", "rho", "air"].forEach(id => $(id).addEventListener("input", calc));
+["b", "mc", "inf", "t", "rho", "air", "clmax"].forEach(id => $(id).addEventListener("input", calc));
 const locks = document.querySelectorAll(".lock");
 const setLock = (btn, locked) => {
   $(btn.dataset.for).readOnly = locked;
@@ -365,4 +370,3 @@ $("reset").addEventListener("click", () => {
 });
 calc();
 </script>
-
