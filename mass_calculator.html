@@ -38,7 +38,10 @@ h2 { font-size: 12px; font-weight: 400; letter-spacing: .06em; text-transform: u
 .hint { font-size: 12.5px; color: var(--muted); }
 .lbl { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .lbl label { font-family: var(--math); font-size: 18px; }
-button.lock { font-size: 11px; padding: 1px 7px; color: var(--muted); }
+button.lock, button.preset { font-size: 11px; padding: 1px 7px; color: var(--muted); }
+.btns { display: flex; gap: 6px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:disabled:hover { background: var(--bg); }
 .inrow input[readonly] { background: var(--soft); color: var(--muted); cursor: not-allowed; }
 button { justify-self: start; font: 14px var(--ui); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 3px; padding: 6px 14px; cursor: pointer; }
 button:hover { background: var(--soft); }
@@ -79,6 +82,28 @@ details[open] summary { margin-bottom: 10px; }
 .work tr:last-child td { border-bottom: 0; }
 .work td:first-child { text-align: right; padding-right: 4px; }
 .work td:nth-child(2) { padding-inline: 4px; }
+
+.stat { font-family: var(--math); font-size: 18px; }
+.lg { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 13px; color: var(--muted); }
+.lg span { display: inline-flex; align-items: center; gap: 6px; }
+.lg i { width: 18px; height: 0; border-top: 3px solid; display: inline-block; }
+.lg i.dash { border-top-style: dashed; border-top-width: 2px; }
+.chart { overflow-x: auto; }
+.chart svg { display: block; width: 100%; min-width: 560px; height: auto; }
+.chart text { font: 12px var(--ui); fill: var(--muted); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { stroke: var(--ink); stroke-width: 1; }
+.chart .curve { fill: none; stroke-width: 2.5; }
+.c100 { stroke: var(--blue); } .c80 { stroke: var(--green); } .c60 { stroke: var(--purple); } .creq { stroke: var(--red); }
+.chart .stall { stroke: var(--red); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.d100 { fill: var(--blue); } .d80 { fill: var(--green); } .d60 { fill: var(--purple); }
+.etab { font-size: 14px; }
+.etab th, .etab td { padding: 8px 14px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.etab th { font-weight: 400; font-family: var(--math); font-size: 16px; color: var(--ink); }
+.etab th:first-child, .etab td:first-child { text-align: left; padding-left: 0; }
+.etab tr:last-child td { border-bottom: 0; }
+.etab .u { display: block; font: 12px var(--ui); color: var(--muted); }
+.etab .sm { color: var(--muted); font-size: 12px; }
 </style>
 
 <main class="wrap">
@@ -110,6 +135,12 @@ details[open] summary { margin-bottom: 10px; }
       <div class="field">
         <div class="lbl"><label for="rho"><span><i>ρ</i><sub>PLA</sub></span></label><button class="lock" type="button" data-for="rho">Unlock</button></div>
         <div class="inrow"><input id="rho" type="number" inputmode="decimal" step="10" min="0" value="800" readonly><span>kg/m³</span></div>
+      </div>
+      <div class="field">
+        <div class="lbl"><label for="air"><span><i>ρ</i><sub>air</sub></span></label>
+          <span class="btns"><button class="preset" type="button" data-air="1.225" disabled>Sea level</button><button class="preset" type="button" data-air="1.107" disabled>Calgary</button><button class="lock" type="button" data-for="air">Unlock</button></span></div>
+        <div class="inrow"><input id="air" type="number" inputmode="decimal" step="0.001" min="0" value="1.225" readonly><span>kg/m³</span></div>
+        <span class="hint">Sea level by default. Used for the flight envelope.</span>
       </div>
       <button id="reset" type="button">Reset to defaults</button>
     </section>
@@ -148,11 +179,91 @@ details[open] summary { margin-bottom: 10px; }
       </details>
     </section>
   </div>
+
+  <section class="panel" aria-labelledby="env-h" aria-live="polite">
+    <h2 id="env-h">Flight envelope</h2>
+    <div class="stat" id="env-stat"></div>
+    <div class="lg">
+      <span><i class="c100"></i>Available, 100% throttle</span>
+      <span><i class="c80"></i>Available, 80%</span>
+      <span><i class="c60"></i>Available, 60%</span>
+      <span><i class="creq"></i>Required, level flight</span>
+      <span><i class="creq dash"></i><i>V</i><sub>stall</sub></span>
+    </div>
+    <div class="chart"><svg id="env-chart" viewBox="0 0 720 380" role="img" aria-label="Thrust available and required versus airspeed"></svg></div>
+    <div class="chart">
+      <table class="etab">
+        <thead><tr>
+          <th>Throttle</th>
+          <th><i>V</i><sub>min</sub><span class="u">m/s</span></th>
+          <th><i>V</i><sub>max</sub><span class="u">m/s</span></th>
+          <th><i>γ</i><sub>max</sub><span class="u">climb angle, at speed</span></th>
+          <th><i>φ</i><sub>max</sub><span class="u">bank angle, at speed</span></th>
+        </tr></thead>
+        <tbody id="env-rows"></tbody>
+      </table>
+    </div>
+    <p class="hint">Air density from <i>ρ</i><sub>air</sub> above. The 6x4 propeller thrust curves are MotoCalc sea-level data, so thrust is likely a little optimistic if you enter a lower density, such as Calgary's 1.107 kg/m³. Whole-aircraft <i>C</i><sub>L</sub> and <i>C</i><sub>D</sub> from the wind tunnel table, <i>C</i><sub>L,max</sub> = 1.075. Climb: sin <i>γ</i> = (<i>T</i> − <i>D</i>) / <i>W</i>. Bank: level turn, <i>n</i> = 1 / cos <i>φ</i>, limited by <i>C</i><sub>L,max</sub> and available thrust.</p>
+  </section>
 </main>
+
+<script id="envelope-core">
+const G = 9.81, CLMAX = 1.075;
+// wind tunnel polar, [C_L, C_D] for alpha = -4 to 16 deg
+const POLAR = [[-0.206, 0.067], [0, 0.057], [0.162, 0.055], [0.344, 0.059], [0.473, 0.068], [0.620, 0.072],
+  [0.769, 0.083], [0.907, 0.101], [1.026, 0.124], [1.069, 0.161], [1.075, 0.211]];
+// MotoCalc Park 250, 6x4 prop: available thrust in grams-force every 0.5 m/s from 0 m/s
+const THRUST = {
+  "100": [181,178,176,173,171,168,166,163,161,158,156,153,151,149,146,143,140,137,134,131,127,124,121,118,115,112,108,105,102,99,95,92,87,84,80,76,72,68,64,60,55,51,46,42,37,32,27,22,17,12,6,1,0],
+  "80": [142,139,137,135,133,131,129,126,124,122,120,117,115,112,109,106,103,100,97,93,90,87,83,79,75,71,67,63,59,55,51,46,42,37,33,28,23,19,14,9,4,0],
+  "60": [93,91,89,88,86,84,82,81,79,77,75,72,70,67,64,61,58,55,51,48,44,40,36,32,28,23,19,15,11,6,2,0]
+};
+
+const lerp = (tab, x) => {
+  if (x <= tab[0][0]) return tab[0][1];
+  for (let i = 1; i < tab.length; i++) {
+    if (x <= tab[i][0]) { const [x0, y0] = tab[i - 1], [x1, y1] = tab[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  }
+  return tab[tab.length - 1][1];
+};
+const thrustG = (k, V) => {
+  const a = THRUST[k], i = V / 0.5;
+  if (i >= a.length - 1) return a[a.length - 1];
+  const j = Math.floor(i);
+  return a[j] + (a[j + 1] - a[j]) * (i - j);
+};
+
+// W in newtons, S in m², rho = air density in kg/m³. Thrust and drag are in grams-force, matching the thrust sheets.
+function envelope(W, S, rho) {
+  const Vs = Math.sqrt(2 * W / (rho * S * CLMAX));
+  const Wg = W / G * 1000;
+  const drag = (V, n = 1) => 0.5 * rho * V * V * S * lerp(POLAR, 2 * n * W / (rho * V * V * S)) / G * 1000;
+  const rows = {};
+  for (const k of Object.keys(THRUST)) {
+    let Vlo = null, Vhi = null, g = { v: 0, a: -1 }, p = { v: 0, a: -1 };
+    for (let V = Vs; V <= 40; V += 0.05) {
+      const T = thrustG(k, V);
+      if (T < drag(V)) continue;
+      if (Vlo === null) Vlo = V;
+      Vhi = V;
+      const a = Math.asin(Math.min(1, (T - drag(V)) / Wg));
+      if (a > g.a) g = { v: V, a };
+      let lo = 1, hi = Math.max(1, CLMAX * rho * V * V * S / (2 * W)); // hi = lift-limited load factor
+      if (drag(V, hi) <= T) lo = hi;
+      else for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (drag(V, m) <= T) lo = m; else hi = m; }
+      const ph = Math.acos(1 / lo);
+      if (ph > p.a) p = { v: V, a: ph };
+    }
+    const deg = 180 / Math.PI;
+    rows[k] = Vlo === null ? null : { Vmin: Vlo, Vmax: Vhi, gamma: g.a * deg, Vg: g.v, phi: p.a * deg, Vp: p.v };
+  }
+  return { Vs, Wg, drag, rows };
+}
+</script>
 
 <script>
 const REF = { SA: 0.02207, Vol: 3.8292e-5, b: 0.19948, Sw: 0.00631753 };
-const DEF = { b: "0.60", mc: "93.2", inf: "5", t: "0.5", rho: "800" };
+const DEF = { b: "0.60", mc: "93.2", inf: "5", t: "0.5", rho: "800", air: "1.225" };
 const $ = id => document.getElementById(id);
 const num = id => { const v = parseFloat($(id).value); return isFinite(v) && v >= 0 ? v : 0; };
 const f = (x, d) => x.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -198,12 +309,55 @@ function calc() {
     ["<i>m</i><sub>infill</sub>", `${f(inf, 3)} × ${rho} × ${e(Vol)} = ${f(mi / 1000, 5)} kg`],
     ["<i>m</i><sub>total</sub>", `${f(mc / 1000, 4)} + ${f(ms / 1000, 5)} + ${f(mi / 1000, 5)} = <b>${f(mt / 1000, 5)} kg</b>`],
   ].map(([l, v]) => `<tr><td>${l}</td><td>=</td><td>${v}</td></tr>`).join("");
+
+  renderEnvelope(mt / 1000 * G, Sw, num("air"));
 }
 
-["b", "mc", "inf", "t", "rho"].forEach(id => $(id).addEventListener("input", calc));
+function renderEnvelope(W, S, rho) {
+  if (!(W > 0 && S > 0 && rho > 0)) { $("env-stat").textContent = "Enter a wingspan, mass and air density to see the envelope."; $("env-chart").innerHTML = ""; $("env-rows").innerHTML = ""; return; }
+  const E = envelope(W, S, rho);
+  $("env-stat").innerHTML = `<i>V</i><sub>stall</sub> = <b>${f(E.Vs, 1)} m/s</b> at <i>C</i><sub>L,max</sub> = ${CLMAX} &nbsp;·&nbsp; <i>W</i> = ${f(W, 2)} N (${f(E.Wg, 0)} g)`;
+
+  const VM = 30, TM = 200, L = 52, R = 14, TP = 14, B = 46, pw = 720 - L - R, ph = 380 - TP - B;
+  const X = v => L + v / VM * pw, Y = t => TP + ph - Math.min(t, TM * 1.5) / TM * ph;
+  const line = pts => pts.map(([v, t], i) => (i ? "L" : "M") + X(v).toFixed(1) + " " + Y(t).toFixed(1)).join("");
+  const grid = [];
+  for (let t = 0; t <= TM; t += 25) grid.push(`<line class="${t ? "grid" : "axis"}" x1="${L}" x2="${L + pw}" y1="${Y(t)}" y2="${Y(t)}"/>` + (t % 50 ? "" : `<text x="${L - 8}" y="${Y(t) + 4}" text-anchor="end">${t}</text>`));
+  for (let v = 0; v <= VM; v += 5) grid.push(`<line class="${v ? "grid" : "axis"}" x1="${X(v)}" x2="${X(v)}" y1="${TP}" y2="${TP + ph}"/><text x="${X(v)}" y="${TP + ph + 18}" text-anchor="middle">${v}</text>`);
+
+  const avail = k => { const pts = []; for (let v = 0; v <= VM; v += 0.5) pts.push([v, thrustG(k, v)]); return pts; };
+  const req = []; for (let v = E.Vs; v <= VM; v += 0.25) req.push([v, E.drag(v)]);
+  const dots = Object.keys(E.rows).filter(k => E.rows[k]).map(k => `<circle class="d${k}" cx="${X(E.rows[k].Vmax)}" cy="${Y(thrustG(k, E.rows[k].Vmax))}" r="4"/>`).join("");
+
+  $("env-chart").innerHTML =
+    `<defs><clipPath id="plot"><rect x="${L}" y="${TP}" width="${pw}" height="${ph}"/></clipPath></defs>` + grid.join("") +
+    `<g clip-path="url(#plot)">` +
+    ["100", "80", "60"].map(k => `<path class="curve c${k}" d="${line(avail(k))}"/>`).join("") +
+    `<line class="stall" x1="${X(E.Vs)}" x2="${X(E.Vs)}" y1="${Y(E.drag(E.Vs))}" y2="${TP}"/>` +
+    `<path class="curve creq" d="${line(req)}"/>` + dots + `</g>` +
+    `<text x="${L + pw / 2}" y="372" text-anchor="middle">Airspeed (m/s)</text>` +
+    `<text transform="translate(14 ${TP + ph / 2}) rotate(-90)" text-anchor="middle">Thrust (g)</text>`;
+
+  const label = { "100": "100%", "80": "80%", "60": "60%" };
+  $("env-rows").innerHTML = Object.keys(E.rows).map(k => {
+    const r = E.rows[k];
+    if (!r) return `<tr><td>${label[k]}</td><td colspan="4" class="sm">Cannot hold level flight at this weight.</td></tr>`;
+    const up = r.gamma >= 89.5;
+    return `<tr><td>${label[k]}</td><td>${f(r.Vmin, 1)}</td><td>${f(r.Vmax, 1)}</td>` +
+      `<td>${up ? "90°" : f(r.gamma, 1) + "°"} <span class="sm">at ${f(r.Vg, 1)}</span></td>` +
+      `<td>${f(r.phi, 1)}° <span class="sm">at ${f(r.Vp, 1)}</span></td></tr>`;
+  }).join("");
+}
+
+["b", "mc", "inf", "t", "rho", "air"].forEach(id => $(id).addEventListener("input", calc));
 const locks = document.querySelectorAll(".lock");
-const setLock = (btn, locked) => { $(btn.dataset.for).readOnly = locked; btn.textContent = locked ? "Unlock" : "Lock"; };
+const setLock = (btn, locked) => {
+  $(btn.dataset.for).readOnly = locked;
+  btn.textContent = locked ? "Unlock" : "Lock";
+  if (btn.dataset.for === "air") document.querySelectorAll(".preset").forEach(p => p.disabled = locked);
+};
 locks.forEach(btn => btn.addEventListener("click", () => setLock(btn, !$(btn.dataset.for).readOnly)));
+document.querySelectorAll(".preset").forEach(btn => btn.addEventListener("click", () => { $("air").value = btn.dataset.air; calc(); }));
 $("reset").addEventListener("click", () => {
   Object.entries(DEF).forEach(([k, v]) => $(k).value = v);
   locks.forEach(btn => setLock(btn, true));
@@ -211,3 +365,4 @@ $("reset").addEventListener("click", () => {
 });
 calc();
 </script>
+
