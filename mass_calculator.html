@@ -286,10 +286,13 @@ function calc() {
   $("mt").textContent = f(mt, 1);
   $("mt-alt").textContent = `${f(mt / 1000, 4)} kg · ${f(mt / 28.3495, 2)} oz · W = ${f(mt / 1000 * 9.81, 3)} N`;
 
-  const ok = mt >= 170 && mt <= 340;
-  $("chip").className = "chip " + (ok ? "good" : "warn");
-  $("chip").textContent = ok ? "Within the Park 250 sport range of 170–340 g."
-    : mt < 170 ? "Below the Park 250 sport range of 170–340 g." : "Above the Park 250 sport range of 170–340 g.";
+    // Park 250 classes from the motor spec (handout Appendix A): 3D 115–170 g, sport and scale 170–340 g Had error origninally where it gave warning even though it can still fly
+  const cls = mt < 115 ? ["good", "Lighter than the Park 250's listed classes (115–340 g), so thrust is plentiful."]
+    : mt < 170 ? ["good", "Park 250 3D class (115–170 g)."]
+    : mt <= 340 ? ["good", "Park 250 sport and scale class (170–340 g)."]
+    : ["warn", "Above the Park 250's recommended 340 g."];
+  $("chip").className = "chip " + cls[0];
+  $("chip").textContent = cls[1];
 
   const pct = x => mt > 0 ? x / mt * 100 : 0;
   [["c", mc], ["s", ms], ["i", mi]].forEach(([k, v]) => {
