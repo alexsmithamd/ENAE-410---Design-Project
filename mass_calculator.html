@@ -104,6 +104,7 @@ details[open] summary { margin-bottom: 10px; }
 .etab tr:last-child td { border-bottom: 0; }
 .etab .u { display: block; font: 12px var(--ui); color: var(--muted); }
 .etab .sm { color: var(--muted); font-size: 12px; }
+.opt { display: none; }   /* climb and bank optimum outputs, hidden for now */
 </style>
 
 <main class="wrap">
@@ -202,13 +203,13 @@ details[open] summary { margin-bottom: 10px; }
           <th>Throttle</th>
           <th><i>V</i><sub>min</sub><span class="u">m/s</span></th>
           <th><i>V</i><sub>max</sub><span class="u">m/s</span></th>
-          <th><i>γ</i><sub>max</sub><span class="u">climb angle, at speed</span></th>
-          <th><i>φ</i><sub>max</sub><span class="u">bank angle, at speed</span></th>
+          <th class="opt"><i>γ</i><sub>max</sub><span class="u">climb angle, at speed</span></th>
+          <th class="opt"><i>φ</i><sub>max</sub><span class="u">bank angle, at speed</span></th>
         </tr></thead>
         <tbody id="env-rows"></tbody>
       </table>
     </div>
-    <p class="hint">Air density from <i>ρ</i><sub>air</sub> above. The 6x4 propeller thrust curves are MotoCalc sea-level data, so thrust is likely a little optimistic if you enter a lower density, such as Calgary's 1.107 kg/m³. Whole-aircraft <i>C</i><sub>L</sub> and <i>C</i><sub>D</sub> from the wind tunnel table. Above the table's last point (<i>C</i><sub>L</sub> = 1.075) <i>C</i><sub>D</sub> is held at its last value. Climb: sin <i>γ</i> = (<i>T</i> − <i>D</i>) / <i>W</i>. Bank: level turn, <i>n</i> = 1 / cos <i>φ</i>, limited by <i>C</i><sub>L,max</sub> and available thrust.</p>
+    <p class="hint">Air density from <i>ρ</i><sub>air</sub> above. The 6x4 propeller thrust curves are MotoCalc sea-level data, so thrust is likely a little optimistic if you enter a lower density, such as Calgary's 1.107 kg/m³. Whole-aircraft <i>C</i><sub>L</sub> and <i>C</i><sub>D</sub> from the wind tunnel table. Above the table's last point (<i>C</i><sub>L</sub> = 1.075) <i>C</i><sub>D</sub> is held at its last value.<span class="opt"> Climb: sin <i>γ</i> = (<i>T</i> − <i>D</i>) / <i>W</i>. Bank: level turn, <i>n</i> = 1 / cos <i>φ</i>, limited by <i>C</i><sub>L,max</sub> and available thrust.</span></p>
   </section>
 </main>
 
@@ -349,11 +350,11 @@ function renderEnvelope(W, S, rho, clmax) {
   const label = { "100": "100%", "80": "80%", "60": "60%" };
   $("env-rows").innerHTML = Object.keys(E.rows).map(k => {
     const r = E.rows[k];
-    if (!r) return `<tr><td>${label[k]}</td><td colspan="4" class="sm">Cannot hold level flight at this weight.</td></tr>`;
+    if (!r) return `<tr><td>${label[k]}</td><td colspan="2" class="sm">Cannot hold level flight at this weight.</td></tr>`;
     const up = r.gamma >= 89.5;
     return `<tr><td>${label[k]}</td><td>${f(r.Vmin, 1)}</td><td>${f(r.Vmax, 1)}</td>` +
-      `<td>${up ? "90°" : f(r.gamma, 1) + "°"} <span class="sm">at ${f(r.Vg, 1)}</span></td>` +
-      `<td>${f(r.phi, 1)}° <span class="sm">at ${f(r.Vp, 1)}</span></td></tr>`;
+      `<td class="opt">${up ? "90°" : f(r.gamma, 1) + "°"} <span class="sm">at ${f(r.Vg, 1)}</span></td>` +
+      `<td class="opt">${f(r.phi, 1)}° <span class="sm">at ${f(r.Vp, 1)}</span></td></tr>`;
   }).join("");
 }
 
