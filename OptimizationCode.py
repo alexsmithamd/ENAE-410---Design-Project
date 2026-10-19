@@ -20,7 +20,8 @@ MU = 1.76e-5          # [A] dynamic viscosity, Pa*s (~8 C)
 M_FIXED_G = 94.9      # [C] Lab 1 component list; replace with weighed kit [M]
 M_MISC_G = 10.0       # [A] wires, pushrods, hinges, glue
 M_TARGET = 0.220      # [A] design mass target, kg
-S_BASE, AR_BASE = 0.03, 6.75   # [I] placeholder baseline
+S_BASE = 0.45 * 0.10125 * 2    # 45 cm semi-span x 101.25 mm chord x 2 sides = 0.091125 m^2
+AR_BASE = 0.90**2 / S_BASE     # b^2/S with b = 0.90 m -> 8.89
 CLMAX = 1.0           # [C]/[A] Lab 1 wind-tunnel CLmax 1.075, rounded down
 CD0, E_OSW = 0.050, 0.80      # [C]/[A] Lab 1 fit CD0 ~0.054; e = 0.8 (Lab 3)
 K_LAUNCH = 1.3        # [A]
